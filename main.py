@@ -73,7 +73,9 @@ def generate_new_sku_stocks():
     for stock in stocks:
         new_sku_stocks.append({
             'sellerSkuNumber': listings_lookup_dict[stock['itemNo']]['sellerSkuNumber'],
-            'new_stock': stock['stock']
+            'new_stock': stock['stock'],
+            'selling_price': stock['sellingPrice'],
+            'cheapest_shipping': min([shipping_info['shipFee'] for shipping_info in stock['shippingInfoList']]) if stock['shippingInfoList'] else 0.0
         })
 
     output_path = os.path.join(os.path.dirname(__file__), 'data/new_sku_stocks.json')
@@ -87,6 +89,19 @@ def update_inventories_for_doba():
         new_sku_stocks = json.load(file)
 
     client.update_inventories_by_seller_sku([{'sellerSkuNumber': stock['sellerSkuNumber'], 'availableQuantity': stock['new_stock']} for stock in new_sku_stocks])
+    
+def update_prices_for_doba():
+    
+    file_path = os.path.join(os.path.dirname(__file__), 'data/new_sku_stocks.json')
+    
+    with open(file_path, 'r') as file:
+        stocks = json.load(file)
+        
+    for stock in stocks:
+        stock['calculated_price'] = (stock['selling_price'] + stock['cheapest_shipping']) * 1.2 * 1.35
+        
+    client.update_price_by_seller_sku([{'sellerSkuNumber': stock['sellerSkuNumber'], 'price': stock['calculated_price']} for stock in stocks])
+
 
 
 def main():
@@ -113,13 +128,16 @@ def main():
 
         print("Performing inventory updates via Michaels API...")
         update_inventories_for_doba()
+        
+        print("Performing price updates via Michaels API...")
+        update_prices_for_doba()
 
-        print("Performing file cleanup...")
-        data_dir = os.path.join(os.path.dirname(__file__), 'data')
-        for file_name in os.listdir(data_dir):
-            if file_name.endswith('.json'):
-                file_path = os.path.join(data_dir, file_name)
-                os.remove(file_path)
+        # print("Performing file cleanup...")
+        # data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        # for file_name in os.listdir(data_dir):
+        #     if file_name.endswith('.json'):
+        #         file_path = os.path.join(data_dir, file_name)
+        #         os.remove(file_path)
 
         print("\n\nUpdate finished! You may now close this terminal window.")
         input("\n\nPress ENTER key to close window...")

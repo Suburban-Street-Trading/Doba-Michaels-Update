@@ -5,6 +5,10 @@ class MichaelsClient:
     def __init__(self, base_url, api_key):
         self.base_url = base_url
         self.api_key = api_key
+        self.headers = {
+            "Api-Key": api_key,
+            "Content-Type": "application/json"
+        }
 
     def get_all_listings(self):
         cursor = None
@@ -32,11 +36,7 @@ class MichaelsClient:
             "cursor": cursor
         }
 
-        headers = {
-            "Api-Key": self.api_key
-        }
-
-        response = requests.get(self.base_url + endpoint, params=params, headers=headers)
+        response = requests.get(self.base_url + endpoint, params=params, headers=self.headers)
 
         if not response.ok:
             response.raise_for_status()
@@ -47,27 +47,32 @@ class MichaelsClient:
         endpoint = "/listing/inventory/update-inventory-by-seller-sku-number"
 
         for i in range(0, len(updates), 50):
-            headers = {
-                "Api-Key": self.api_key
-            }
 
-            response = requests.post(self.base_url + endpoint, json=updates[i:min(i + 50, len(updates))], headers=headers)
+            response = requests.post(
+                self.base_url + endpoint, 
+                json=updates[i:min(i + 50, len(updates))], 
+                headers=self.headers
+            )
 
             if not response.ok:
                 response.raise_for_status()
                 
 
-    def update_price_by_seller_sku(self, requests):
+    def update_price_by_seller_sku(self, updates: list[dict]):
         endpoint = "/listing/price/publish-by-seller-sku-number"
-
-        headers = {
-            "Api-Key": self.api_key
-        }
-
-        try:
-            response = requests.post(self.base_url + endpoint, json=requests, headers=headers)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            # Handle request errors
-            print(f"Error updating price: {e}")
-            raise
+        
+        updates = [update for update in updates if update.get("price", 0) != 0]
+        
+        for i in range(0, len(updates), 50):
+        
+            response = requests.post(
+                self.base_url + endpoint, 
+                json=updates[i:min(i + 50, len(updates))], 
+                headers=self.headers
+            )
+            
+            if not response.ok:
+                response.raise_for_status()        
+                
+                
+    
